@@ -1,0 +1,10 @@
+# Compiled binaries
+/server
+/client
+
+# Visual Studio Code
+.vscode
+
+# Object files
+*.o
+
