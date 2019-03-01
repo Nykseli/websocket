@@ -1,6 +1,7 @@
 # Compiled binaries
 /server
 /client
+/base64
 
 # Visual Studio Code
 .vscode
