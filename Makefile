@@ -1,9 +1,11 @@
 CFLAGS := -std=c99 -Wall -Wextra -Werror -Wno-unused-parameter
 
+CRYPTOPATH = src/crypto/
+
 all: server client
 
-server:
-	gcc src/main.c -o server $(CFLAGS)
+server: sha1.o base64.o
+	gcc src/main.c -o server $(CRYPTOPATH)sha1.o $(CRYPTOPATH)base64.o $(CFLAGS)
 
 client:
 	gcc src/test_client.c -o client $(CFLAGS)
@@ -13,5 +15,11 @@ base64:
 
 sha1:
 	gcc src/crypto/sha1.c -o sha1 -g $(CFLAGS) -DSHA1_TEST
+
+sha1.o: $(CRYPTOPATH)sha1.c
+	gcc $(CFLAGS) -c $(CRYPTOPATH)sha1.c -o $(CRYPTOPATH)sha1.o
+
+base64.o: $(CRYPTOPATH)base64.c
+	gcc $(CFLAGS) -c $(CRYPTOPATH)base64.c -o $(CRYPTOPATH)base64.o
 
 .PHONY: server base64 sha1

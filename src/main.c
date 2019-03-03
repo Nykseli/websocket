@@ -69,7 +69,97 @@
  */
 #include <unistd.h>
 
+#include "crypto/base64.h"
+#include "crypto/sha1.h"
+
 #define SERVER_STR "Server: webasmhttpd/0.0.1\r\n"
+
+static int read_line(int client, char *buffer, int size) {
+    int i = 0, n;
+    char c = 0;
+
+    while(i < size && c != '\n') {
+        n = recv(client, &c, 1, 0);
+
+        if(n == -1) break; // TODO: Should we report an error?
+
+        // ignore the \r
+        if(c == '\r') continue;
+        // when \n is found
+        if(c == '\n') break;
+
+        buffer[i] = c;
+        i++;
+    }
+
+    // Terminate the string with null
+    buffer[i] = '\0';
+
+    return i;
+}
+
+
+static void get_str_from_buf(const char *s1, char *s2, int size, int start) {
+    int char_start = 0;
+    char c = s1[char_start + start];
+
+    // Skip all the white space from the start
+    while (c == ' ' || c == '\t') {
+        c = s1[char_start + start];
+        char_start++;
+    }
+
+    // Set rest of the chars to s2
+    for(int i = 0; i < size; i++){
+        c = s1[i + start + char_start];
+        s2[i] = c;
+    }
+}
+
+static void socket_hash(char *in, char *out) {
+    // Magic string for the socket handshake hash
+    const char* magic_str = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11";
+    char buf[256];
+    Sha1 sha1;
+
+    // Concat the input and the magic string
+    strcpy(buf, in);
+    strcpy(buf + strlen(in), magic_str);
+
+    printf("BUF LENGTH: %s\n", buf);
+
+    // Hask the concated string
+    sha1hash(&sha1, (uint8_t*) buf, strlen(buf));
+
+    // Base64 encode the hash to the out
+    // sha hash is always 20 bytes long
+    base64encode(sha1.hash, out, 20);
+
+}
+
+/**
+ * @brief send 101 header to client. This is the webscoket handshake
+ *
+ * @param client File descriptor
+ * @param accept the base64 string of the handshake hash
+ */
+static void header_101(int client, const char *accept) {
+    char buf[1024];
+
+    strcpy(buf, "HTTP/1.1 101 Switching Protocols\r\n");
+    send(client, buf, strlen(buf), 0);
+    strcpy(buf, "Upgrade: websocket\r\n");
+    send(client, buf, strlen(buf), 0);
+    strcpy(buf, "Connection: Upgrade\r\n");
+    send(client, buf, strlen(buf), 0);
+    strcpy(buf, "Sec-WebSocket-Accept: ");
+    strcat(buf, accept);
+    strcat(buf, "\r\n");
+    printf("%s", buf);
+    send(client, buf, strlen(buf), 0);
+    strcpy(buf, "\r\n");
+    send(client, buf, strlen(buf), 0);
+}
 
 /**
  * @brief send 200 header to client
@@ -139,6 +229,22 @@ static void sendFile(int client, const char* filename) {
 
 }
 
+static void handle_request_header(int client) {
+    char buf[256];
+    char tmp[256];
+
+    while(read_line(client, buf, sizeof(buf)) > 1){
+        if (!strncmp(buf, "Sec-WebSocket-Key: ", 19)){
+            printf("Key: %s\n", buf);
+            get_str_from_buf(buf, tmp, sizeof(tmp), 19);
+            printf("%s\n", tmp);
+            socket_hash(tmp, buf);
+            header_101(client, buf);
+        }
+    }
+
+}
+
 int main(int argc, char const *argv[]) {
 
     // Ports range is 0-65535 (0x0000-0xffff)
@@ -146,7 +252,6 @@ int main(int argc, char const *argv[]) {
     uint16_t port = 8888;
 
     // Buffer for reading data from client
-    char buf[1024];
 
     struct sockaddr_in sa;
 
@@ -154,6 +259,12 @@ int main(int argc, char const *argv[]) {
     int socketfd = socket(PF_INET, SOCK_STREAM, IPPROTO_TCP);
     if (socketfd == -1) {
         perror("cannot create socket");
+        exit(EXIT_FAILURE);
+    }
+
+    // Try to reuse the port
+    if (setsockopt(socketfd, SOL_SOCKET, SO_REUSEADDR, &(int){ 1 }, sizeof(int)) == -1) {
+        perror("setsockopt(SO_REUSEADDR) failed");
         exit(EXIT_FAILURE);
     }
 
@@ -198,8 +309,7 @@ int main(int argc, char const *argv[]) {
         }
 
         // Read the data from client and print it
-        read(connectfd, buf, 1024);
-        printf("Data from client:\n%s\n",  buf);
+        handle_request_header(connectfd);
 
         // Serve the test html file to client
         sendFile(connectfd, "html/index_test.html");
@@ -211,6 +321,7 @@ int main(int argc, char const *argv[]) {
             exit(EXIT_FAILURE);
         }
 
+        printf("request handled\n");
         close(connectfd);
     }
 
