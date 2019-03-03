@@ -2,6 +2,7 @@
 /server
 /client
 /base64
+/sha1
 
 # Visual Studio Code
 .vscode

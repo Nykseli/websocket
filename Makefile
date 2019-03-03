@@ -9,6 +9,9 @@ client:
 	gcc src/test_client.c -o client $(CFLAGS)
 
 base64:
-	gcc src/base64.c -o base64 $(CFLAGS) -DBASE64_TEST
+	gcc src/crypto/base64.c -o base64 $(CFLAGS) -DBASE64_TEST
 
-.PHONY: server, base64
+sha1:
+	gcc src/crypto/sha1.c -o sha1 -g $(CFLAGS) -DSHA1_TEST
+
+.PHONY: server, base64, sha1
