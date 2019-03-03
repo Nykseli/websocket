@@ -1,4 +1,5 @@
 
+#include <inttypes.h>
 #include "base64.h"
 
 #ifdef BASE64_TEST
@@ -47,7 +48,7 @@ static char char_table[] = {
  * @param len lenght of the input
  * @return int 1 if success
  */
-int base64encode(const char *input, char *output, int len) {
+int base64encode(const uint8_t *input, char *output, int len) {
 
     int i,j;
     int letter_bits, table_index, tmpint;
@@ -114,7 +115,7 @@ int base64encode(const char *input, char *output, int len) {
  * @param len lenght of the input
  * @return int 1 if success, 0 if failed (fail is from non base64 char)
  */
-int base64decode(const char *input, char *output, int len) {
+int base64decode(const char *input, uint8_t *output, int len) {
     int i,j;
     int letter_bits, char_val, tmpint;
 
@@ -168,38 +169,38 @@ int base64decode(const char *input, char *output, int len) {
 
 #ifdef BASE64_TEST
 int main(){
-    char lsd[] = {'M', 'a', 'n', 'M', 'a', 'n'};
+    uint8_t lsd[] = {'M', 'a', 'n', 'M', 'a', 'n'};
     char buf[9];
     base64encode(lsd, buf, 6);
     printf("encoded: %s\n", buf);
 
     char buf2[9];
-    char lsd2[] = {'M', 'a', 'n', 'M', 'a', 'n'};
+    uint8_t lsd2[] = {'M', 'a', 'n', 'M', 'a', 'n'};
     base64encode(lsd2, buf2, 5);
     printf("encoded: %s\n", buf2);
 
     char buf3[9];
-    char lsd3[] = {'M', 'a', 'n', 'M', 'a', 'n'};
+    uint8_t lsd3[] = {'M', 'a', 'n', 'M', 'a', 'n'};
     base64encode(lsd3, buf3, 4);
     printf("encoded: %s\n", buf3);
 
     char buf4[30];
-    base64encode("any carnal pleasure.", buf4, 20);
+    base64encode((uint8_t*)"any carnal pleasure.", buf4, 20);
     printf("encoded: %s\n", buf4);
 
-    char buf5[30];
+    uint8_t buf5[30];
     base64decode("TWFuTWFu", buf5, 8);
     printf("decoded: %s\n", buf5);
 
-    char buf6[30];
+    uint8_t buf6[30];
     base64decode("YW55IGNhcm5hbCBwbGVhc3Vy", buf6, 24);
     printf("decoded: %s\n", buf6);
 
-    char buf7[30];
+    uint8_t buf7[30];
     base64decode("YW55IGNhcm5hbCBwbGVhc3VyZS4=", buf7, 28);
     printf("decoded: %s\n", buf7);
 
-    char buf8[30];
+    uint8_t buf8[30];
     if (base64decode("ääYW55IGNhcm5hbCBwbGVhc3VyZQ==", buf8, 28))
         printf("decoded: %s\n", buf8);
 

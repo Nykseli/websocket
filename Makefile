@@ -14,4 +14,4 @@ base64:
 sha1:
 	gcc src/crypto/sha1.c -o sha1 -g $(CFLAGS) -DSHA1_TEST
 
-.PHONY: server, base64, sha1
+.PHONY: server base64 sha1
