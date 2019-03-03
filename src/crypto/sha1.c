@@ -89,6 +89,13 @@ void sha1hash(Sha1* sha, const uint8_t *input, uint64_t msg_len){
 
     // Message length that is divisble by 64
     uint64_t message_64_len = msg_len + (64 -(msg_len % 64));
+
+    // If the original message length % 64 (modulus 64) is 55 < n < 64
+    // We need to add 64 bytes to message len to get the padding right
+    if (55 < (msg_len % 64 ) && (msg_len % 64) < 64) {
+        message_64_len += 64;
+    }
+
     // Allocate the memory for the new message
     uint8_t* message  = (uint8_t*) malloc(sizeof(uint8_t) * message_64_len);
     // Copy the input to message
@@ -216,7 +223,7 @@ void sha1hash(Sha1* sha, const uint8_t *input, uint64_t msg_len){
 #ifdef SHA1_TEST
 int main(){
     Sha1 sha;
-    sha1hash(&sha, (uint8_t*) "The quick brown fox jumps over the lazy cog", 43);
+    sha1hash(&sha, (uint8_t*) "dGhlIHNhbXBsZSBub25jZQ==258EAFA5-E914-47DA-95CA-C5AB0DC85B11", 56);
     pbyte(sha.hash, 20);
 }
 #endif
