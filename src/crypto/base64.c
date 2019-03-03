@@ -57,7 +57,7 @@ int base64encode(const uint8_t *input, char *output, int len) {
     int offset = -1;
 
     // padding_amount sets the amount of '=' in the end of the output
-    int padding_amount = len % 3;
+    int padding_amount = len % 3 ? 3 - (len % 3) : 0;
 
     // Go through 3 letters per loop
     for (i = 0; i < len; i += 3) {
