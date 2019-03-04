@@ -71,6 +71,7 @@
 
 #include "crypto/base64.h"
 #include "crypto/sha1.h"
+#include "dataframe.h"
 
 #define SERVER_STR "Server: webasmhttpd/0.0.1\r\n"
 
@@ -114,6 +115,31 @@ static void get_str_from_buf(const char *s1, char *s2, int size, int start) {
         c = s1[i + start + char_start];
         s2[i] = c;
     }
+}
+
+void sendFrame(int client) {
+    Dataframe frame;
+    init_dataframe(&frame);
+
+    // We only want to test sending the one frame
+    set_as_last_frame(&frame);
+
+    // We want to send text data
+    set_op_code(&frame, TEXT_FRAME);
+
+    // Set the acutual message we want to send
+    set_data(&frame, (uint8_t*)"Hello Sock!", 11);
+
+    // Get the frame as a byte array
+    uint8_t* data_bytes = get_data_bytes(&frame);
+
+    // Send the actual data to client
+    send(client, data_bytes, frame.total_len, 0);
+
+    // Free the mallocs
+    free_dataframe(&frame);
+    free(data_bytes);
+
 }
 
 static void socket_hash(char *in, char *out) {
@@ -312,7 +338,9 @@ int main(int argc, char const *argv[]) {
         handle_request_header(connectfd);
 
         // Serve the test html file to client
-        sendFile(connectfd, "html/index_test.html");
+        //sendFile(connectfd, "html/index_test.html");
+        // Send a test frame to client
+        sendFrame(connectfd);
 
         if (shutdown(connectfd, SHUT_RDWR) == -1) {
             perror("shutdown failed");

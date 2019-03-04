@@ -1,11 +1,11 @@
-CFLAGS := -std=c99 -Wall -Wextra -Werror -Wno-unused-parameter
+CFLAGS := -std=c99 -Wall -Wextra #-Werror -Wno-unused-parameter
 
 CRYPTOPATH = src/crypto/
 
 all: server client
 
-server: sha1.o base64.o
-	gcc src/main.c -o server $(CRYPTOPATH)sha1.o $(CRYPTOPATH)base64.o $(CFLAGS)
+server: sha1.o base64.o dataframe.o
+	gcc src/main.c -o server src/dataframe.o $(CRYPTOPATH)sha1.o $(CRYPTOPATH)base64.o $(CFLAGS)
 
 client:
 	gcc src/test_client.c -o client $(CFLAGS)
@@ -21,5 +21,8 @@ sha1.o: $(CRYPTOPATH)sha1.c
 
 base64.o: $(CRYPTOPATH)base64.c
 	gcc $(CFLAGS) -c $(CRYPTOPATH)base64.c -o $(CRYPTOPATH)base64.o
+
+dataframe.o: src/dataframe.c
+	gcc $(CFLAGS) -c src/dataframe.c -o src/dataframe.o
 
 .PHONY: server base64 sha1
