@@ -140,6 +140,31 @@ void sendFrame(int client) {
     free_dataframe(&frame);
     free(data_bytes);
 
+    // Send the close frame for a clean close
+
+    // Re init the frame
+    init_dataframe(&frame);
+
+    // When sending a close frame. It has to be the last frame
+    set_as_last_frame(&frame);
+
+    // We want close the frame
+    set_op_code(&frame, CLOSE_FRAME);
+
+    // Set close message we want to send
+    // 2 first bytes are the close code. and the rest is the message
+    set_data(&frame, (uint8_t*)"\0\1Close Socket!", 15);
+
+    // Get the frame as a byte array
+    data_bytes = get_data_bytes(&frame);
+
+    // Send the actual data to client
+    send(client, data_bytes, frame.total_len, 0);
+
+    // Free the mallocs
+    free_dataframe(&frame);
+    free(data_bytes);
+
 }
 
 static void socket_hash(char *in, char *out) {
