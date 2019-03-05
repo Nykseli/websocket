@@ -286,12 +286,20 @@ static void handle_request_header(int client) {
 
     while(read_line(client, buf, sizeof(buf)) > 1){
         if (!strncmp(buf, "Sec-WebSocket-Key: ", 19)){
-            printf("Key: %s\n", buf);
             get_str_from_buf(buf, tmp, sizeof(tmp), 19);
-            printf("%s\n", tmp);
+            // Create the Sec-WebSocket-Accept: header hash
             socket_hash(tmp, buf);
+            // Send the 101 header to complete the websocket handshake
             header_101(client, buf);
+            // Send a test frame to client right after the hanshake is comlete
+            sendFrame(client);
         }
+        // If the connection is regular http. Return html that lets
+        // the client know that this is webscoket server only
+        if (!strcmp(buf, "Connection: keep-alive")) {
+            sendFile(client, "html/ws_only.html");
+        }
+
     }
 
 }
@@ -361,11 +369,6 @@ int main(int argc, char const *argv[]) {
 
         // Read the data from client and print it
         handle_request_header(connectfd);
-
-        // Serve the test html file to client
-        //sendFile(connectfd, "html/index_test.html");
-        // Send a test frame to client
-        sendFrame(connectfd);
 
         if (shutdown(connectfd, SHUT_RDWR) == -1) {
             perror("shutdown failed");
