@@ -8,20 +8,22 @@
  *
  * @param frame The Dataframe you want to check
  */
-static int is_last_frame(Dataframe frame) {
-    // FIN is the leftmost bit in the control byte
-    return (frame.control >> 7);
-}
+// TODO: use this
+// static int is_last_frame(Dataframe frame) {
+//     // FIN is the leftmost bit in the control byte
+//     return (frame.control >> 7);
+// }
 
 /**
  * @brief Check if the fram has the mask flag set
  *
  * @param frame The Dataframe you want to check
  */
-static int has_hash_mask(Dataframe frame) {
-    // Mask flag is the leftmost bit of the data_info byte
-    return (frame.data_info >> 7);
-}
+// TODO: use this
+// static int has_hash_mask(Dataframe frame) {
+//     // Mask flag is the leftmost bit of the data_info byte
+//     return (frame.data_info >> 7);
+// }
 
 void init_dataframe(Dataframe *frame) {
     frame->control = 0;

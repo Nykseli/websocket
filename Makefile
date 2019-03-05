@@ -1,4 +1,8 @@
-CFLAGS := -std=c99 -Wall -Wextra #-Werror -Wno-unused-parameter
+CFLAGS := -std=c99 -Wall -Wextra -Werror -Wno-unused-parameter
+
+ifdef DEBUG
+	CFLAGS += -g
+endif
 
 CRYPTOPATH = src/crypto/
 
