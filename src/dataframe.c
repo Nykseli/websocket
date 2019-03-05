@@ -24,7 +24,12 @@ static int has_hash_mask(Dataframe frame) {
 }
 
 void init_dataframe(Dataframe *frame) {
+    frame->control = 0;
+    frame->data_info = 0;
+    frame->data_length = 0;
+    frame->mask_key = 0;
     frame->data = NULL;
+    frame->total_len = 0;
 }
 
 void free_dataframe(Dataframe *frame) {
