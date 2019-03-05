@@ -92,9 +92,9 @@ void set_mask_key(Dataframe *frame, uint32_t mask_key) {
  */
 void set_data(Dataframe *frame, uint8_t* data, uint64_t len) {
     // First set the data_info length bytes
-    // Length bits are the sevel left most bits
+    // Length bits are the seven left most bits
     // if length is < 126 we can store the whole length to info_byte
-    if (len < 125) {
+    if (len < 126) {
         frame->data_info |= (uint8_t)len;
     }
     // TODO: do the 16bit and 64 bit lengths
@@ -118,7 +118,7 @@ void set_data(Dataframe *frame, uint8_t* data, uint64_t len) {
 uint8_t* get_data_bytes(Dataframe *frame) {
     uint8_t* data_bytes = NULL;
     // Extra bytes are the bytes that are not the actual data bytes
-    // We always need atleast two since for the contorl and info byte
+    // We always need atleast two since for the control and info byte
     uint64_t extra_bytes = 2;
 
     //TODO: check the if the frame hash mask and if the data_len is > 125 and add the byte amount to len
