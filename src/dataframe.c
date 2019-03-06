@@ -22,6 +22,7 @@
     (uint8_t)((frame)->data_length >> 48),\
     (uint8_t)((frame)->data_length >> 40),\
     (uint8_t)((frame)->data_length >> 32),\
+    (uint8_t)((frame)->data_length >> 24),\
     (uint8_t)((frame)->data_length >> 16),\
     (uint8_t)((frame)->data_length >> 8),\
     (uint8_t)((frame)->data_length)\
@@ -178,7 +179,6 @@ uint8_t* get_data_bytes(Dataframe *frame) {
     // If the info length is 126 copy the full length as two byte array
     if (DATA_INFO_LEN(frame) == 126)
         memcpy(data_bytes + 2, UINT16_LEN_BYTES(frame), 2);
-        //memcpy(data_bytes + 2, (uint8_t[]) {8,2}, 2);
     // If the info length is 127 copy the full length as eight byte array
     else if (DATA_INFO_LEN(frame) == 127)
         memcpy(data_bytes + 2, UINT64_LEN_BYTES(frame), 8);
