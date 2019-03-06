@@ -3,6 +3,30 @@
 #include <string.h>
 #include "dataframe.h"
 
+// Gets the length bytes from Dataframe struct
+#define DATA_INFO_LEN(frame) ((frame)->data_info & 0x7f)
+
+// Turns the frame->data_length into two byte array
+#define UINT16_LEN_BYTES(frame)\
+(uint8_t[])\
+{\
+    (uint8_t)((frame)->data_length >> 8),\
+    (uint8_t)((frame)->data_length)\
+}
+
+// Turns the frame->data_length into eight byte array
+#define UINT64_LEN_BYTES(frame)\
+(uint8_t[])\
+{\
+    (uint8_t)((frame)->data_length >> 56),\
+    (uint8_t)((frame)->data_length >> 48),\
+    (uint8_t)((frame)->data_length >> 40),\
+    (uint8_t)((frame)->data_length >> 32),\
+    (uint8_t)((frame)->data_length >> 16),\
+    (uint8_t)((frame)->data_length >> 8),\
+    (uint8_t)((frame)->data_length)\
+}
+
 /**
  * @brief Check if the frame is the last one of the message
  *
@@ -98,8 +122,15 @@ void set_data(Dataframe *frame, uint8_t* data, uint64_t len) {
     // if length is < 126 we can store the whole length to info_byte
     if (len < 126) {
         frame->data_info |= (uint8_t)len;
+    } else if (len <= UINT16_MAX) {
+        // If the length is in range of UINT16_MAX (0-65535)
+        // we need to set the lenght of the frame data_info to 126 (111 1110)
+        frame->data_info |= 126;
+    } else {
+        // If the length is higher than UINT16_MAX (0-65535)
+        // we need to set the lenght of the frame data_info to 127 (111 1111)
+        frame->data_info |= 127;
     }
-    // TODO: do the 16bit and 64 bit lengths
 
     // Set the data_length
     frame->data_length = len;
@@ -123,9 +154,16 @@ uint8_t* get_data_bytes(Dataframe *frame) {
     // We always need atleast two since for the control and info byte
     uint64_t extra_bytes = 2;
 
-    //TODO: check the if the frame hash mask and if the data_len is > 125 and add the byte amount to len
+    // If the length in data_info is 126, we need two bytes to represent the value
+    // 126 reprecent 16 bit length value
+    if (DATA_INFO_LEN(frame) == 126)
+        extra_bytes += 2;
+    // If the length in data_info is 127, we need eight bytes to represent the value
+    // 127 reprecent 64 bit length value
+    else if (DATA_INFO_LEN(frame) == 127)
+        extra_bytes += 8;
 
-    // The total of the frame is the lengt of the data bytes and the other bytes
+    // The total of the frame is the length of the data bytes and the extra bytes
     uint64_t length = frame->data_length + extra_bytes;
     // Set the total length to frame struct so it can be used when sending the data
     frame->total_len = length;
@@ -136,6 +174,14 @@ uint8_t* get_data_bytes(Dataframe *frame) {
     data_bytes[0] = frame->control;
     // The second contains the frame info
     data_bytes[1] = frame->data_info;
+
+    // If the info length is 126 copy the full length as two byte array
+    if (DATA_INFO_LEN(frame) == 126)
+        memcpy(data_bytes + 2, UINT16_LEN_BYTES(frame), 2);
+        //memcpy(data_bytes + 2, (uint8_t[]) {8,2}, 2);
+    // If the info length is 127 copy the full length as eight byte array
+    else if (DATA_INFO_LEN(frame) == 127)
+        memcpy(data_bytes + 2, UINT64_LEN_BYTES(frame), 8);
 
     //TODO: copy the length bytes and mask bytes if there is any
 
