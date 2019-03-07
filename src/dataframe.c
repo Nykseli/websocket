@@ -3,6 +3,14 @@
 #include <string.h>
 #include "dataframe.h"
 
+// Check if the frame is the last one of the message
+// FIN is the leftmost bit in the control byte
+#define IS_LAST_FRAME(frame) ((frame)->control >> 7)
+
+// Check if the mask flag is set
+// Mask flag is the lefmost bit of the data_info byte
+#define HAS_MASK(frame) ((frame)->data_info >> 7)
+
 // Gets the length bytes from Dataframe struct
 #define DATA_INFO_LEN(frame) ((frame)->data_info & 0x7f)
 
@@ -28,27 +36,16 @@
     (uint8_t)((frame)->data_length)\
 }
 
-/**
- * @brief Check if the frame is the last one of the message
- *
- * @param frame The Dataframe you want to check
- */
-// TODO: use this
-// static int is_last_frame(Dataframe frame) {
-//     // FIN is the leftmost bit in the control byte
-//     return (frame.control >> 7);
-// }
+// Turns the frame->mask_key into four byte array
+#define MASK_BYTES(frame)\
+(uint8_t[])\
+{\
+    (uint8_t)((frame)->mask_key >> 24),\
+    (uint8_t)((frame)->mask_key >> 16),\
+    (uint8_t)((frame)->mask_key >> 8),\
+    (uint8_t)((frame)->mask_key)\
+}
 
-/**
- * @brief Check if the fram has the mask flag set
- *
- * @param frame The Dataframe you want to check
- */
-// TODO: use this
-// static int has_hash_mask(Dataframe frame) {
-//     // Mask flag is the leftmost bit of the data_info byte
-//     return (frame.data_info >> 7);
-// }
 
 void init_dataframe(Dataframe *frame) {
     frame->control = 0;
@@ -164,6 +161,10 @@ uint8_t* get_data_bytes(Dataframe *frame) {
     else if (DATA_INFO_LEN(frame) == 127)
         extra_bytes += 8;
 
+    // If frame has  mask, we need four bytes to store it
+    if (HAS_MASK(frame))
+        extra_bytes += 4;
+
     // The total of the frame is the length of the data bytes and the extra bytes
     uint64_t length = frame->data_length + extra_bytes;
     // Set the total length to frame struct so it can be used when sending the data
@@ -183,7 +184,9 @@ uint8_t* get_data_bytes(Dataframe *frame) {
     else if (DATA_INFO_LEN(frame) == 127)
         memcpy(data_bytes + 2, UINT64_LEN_BYTES(frame), 8);
 
-    //TODO: copy the length bytes and mask bytes if there is any
+    // If the frame has mask, append the four mask bytes to end of data_bytes
+    if (HAS_MASK(frame))
+        memcpy(data_bytes + strlen((char*)data_bytes), MASK_BYTES(frame), 4);
 
     // Copy the actual data from frame to array
     memcpy(data_bytes + extra_bytes, frame->data, frame->data_length);
