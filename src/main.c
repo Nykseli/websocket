@@ -69,6 +69,8 @@
  */
 #include <unistd.h>
 
+#include <pthread.h>
+
 #include "crypto/base64.h"
 #include "crypto/sha1.h"
 #include "dataframe.h"
@@ -304,13 +306,31 @@ static void handle_request_header(int client) {
 
 }
 
+static void* accept_client(void* clientptr) {
+        int client = *((int*) clientptr);
+
+        // Read the data from client and print it
+        handle_request_header(client);
+
+        if (shutdown(client, SHUT_RDWR) == -1) {
+            perror("shutdown failed");
+            close(client);
+            exit(EXIT_FAILURE);
+        }
+
+        printf("request handled\n");
+        close(client);
+
+        return NULL;
+}
+
 int main(int argc, char const *argv[]) {
 
     // Ports range is 0-65535 (0x0000-0xffff)
     // which is exacly what uint16_t holds
     uint16_t port = 8888;
 
-    // Buffer for reading data from client
+    pthread_t thread;
 
     struct sockaddr_in sa;
 
@@ -367,18 +387,11 @@ int main(int argc, char const *argv[]) {
             exit(EXIT_FAILURE);
         }
 
-        // Read the data from client and print it
-        handle_request_header(connectfd);
-
-        if (shutdown(connectfd, SHUT_RDWR) == -1) {
-            perror("shutdown failed");
+        // Handle each connection in a thread
+        if (pthread_create(&thread, NULL, accept_client, &connectfd) != 0) {
+            perror("thread failed");
             close(connectfd);
-            close(socketfd);
-            exit(EXIT_FAILURE);
         }
-
-        printf("request handled\n");
-        close(connectfd);
     }
 
 
