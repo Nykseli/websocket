@@ -319,11 +319,11 @@ static void* accept_client(void* clientptr) {
         // Read the data from client and print it
         handle_request_header(client);
 
-        if (shutdown(client, SHUT_RDWR) == -1) {
-            perror("shutdown failed");
-            close(client);
-            exit(EXIT_FAILURE);
-        }
+        // if (shutdown(client, SHUT_RDWR) == -1) {
+        //     perror("shutdown failed");
+        //     close(client);
+        //     exit(EXIT_FAILURE);
+        // }
 
         printf("request handled\n");
         close(client);

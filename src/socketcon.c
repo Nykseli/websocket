@@ -12,6 +12,9 @@
 // Get the length bits
 #define LENGTH_BITS(byte) (byte & 0x7f)
 
+// Get the op code from byte. The op code is the four rightmost bits
+#define OP_CODE(byte) (byte & 0x0f)
+
 /**
  * @brief read the frame bytes from socket
  *
@@ -76,10 +79,16 @@ static uint8_t* read_frame(int client) {
     return buffer;
 }
 
-static void close_socket(int client) {
+/**
+ * @brief send the close signal to client
+ *
+ * @param client client file descriptor
+ * @return int -1 to signal the end of the connection
+ */
+static int close_socket(int client) {
     Dataframe frame;
     uint8_t* data_bytes;
-    // Re init the frame
+    // Init the frame
     init_dataframe(&frame);
 
     // When sending a close frame. It has to be the last frame
@@ -101,39 +110,94 @@ static void close_socket(int client) {
     // Free the mallocs
     free_dataframe(&frame);
     free(data_bytes);
+    // Return -1 to signal the end of the socket connection
+    return -1;
+}
+
+/**
+ * @brief echo the frame back to the client
+ *
+ * @param client client file descriptor
+ * @param Dataframe pointer to frame you want to send
+ * @return int 1 to signal that connection keeps on going
+ */
+static int echo_frame(int client, Dataframe *frame) {
+    Dataframe echo;
+    uint8_t* echo_buf;
+
+    // Init the echo frame
+    init_dataframe(&echo);
+
+    // We currently want to frame only a one frame
+    set_as_last_frame(&echo);
+
+    // Only the text frame is supported
+    set_op_code(&echo, TEXT_FRAME);
+
+    // Copy message data from recieved frame
+    set_data(&echo, frame->data, frame->data_length);
+
+    // Get bytes from frame and send it
+    echo_buf = get_frame_bytes(&echo);
+    send(client, echo_buf, echo.total_len, 0);
+
+    // free the mallocs
+    free(echo_buf);
+    free_dataframe(&echo);
+
+    return 1;
+}
+
+static int handle_frame(int client, Dataframe *frame) {
+    // return -1 if we dont want to close the connection
+    int return_val = 1;
+
+    printf("Handle frame op code: %02x\n", OP_CODE(frame->control));
+
+    switch (OP_CODE(frame->control)) {
+        case CONT_FRAME:
+            //TODO:
+            break;
+        case  TEXT_FRAME:
+            return_val = echo_frame(client, frame);
+            break;
+        case BIN_FRAME:
+            //TODO:
+            break;
+        case CLOSE_FRAME:
+            return_val = close_socket(client);
+            break;
+        case PING_FRAME:
+            //TODO:
+            break;
+        case PONG_FRAME:
+            //TODO:
+            break;
+        default:
+            //TODO: error maybe?
+            break;
+    }
+
+    // Remember to free the frame after its used
+    free_dataframe(frame);
+    return return_val;
 }
 
 void handle_connection(int client) {
     // Connection loop
-    // for (;;) {
-    // accept 1 message for testing
-    for (int i = 0; i < 1; i++) {
+    // The connection thread dies after this loop breaks
+    for (;;) {
         Dataframe frame;
         uint8_t* frame_buf;
         // Create frame from the input data
         init_dataframe(&frame);
         frame_buf = read_frame(client);
         create_frame(&frame, frame_buf);
+        // create_frame copies the frame struct so we need to free it
         free(frame_buf);
 
-        // Send frame data verbatim to the server
-        Dataframe echo;
-        init_dataframe(&echo);
-        set_as_last_frame(&echo);
-        set_op_code(&echo, TEXT_FRAME);
-        // Copy message data from recieved frame
-        set_data(&echo, frame.data, frame.data_length);
-        // Get bytes from frame and send it
-        frame_buf = get_frame_bytes(&echo);
-        send(client, frame_buf, echo.total_len, 0);
-
-        // Remember to free the heap
-        free(frame_buf);
-        free_dataframe(&echo);
-        free_dataframe(&frame);
-
+        // -1 from handle_frame signals the end of the connection
+        if (handle_frame(client, &frame) == -1)
+            break;
     }
-
-    // Send close frame for a clean close
-    close_socket(client);
 }
