@@ -74,6 +74,7 @@
 #include "crypto/base64.h"
 #include "crypto/sha1.h"
 #include "dataframe.h"
+#include "socketcon.h"
 
 #define SERVER_STR "Server: webasmhttpd/0.0.1\r\n"
 
@@ -133,7 +134,7 @@ void sendFrame(int client) {
     set_data(&frame, (uint8_t*)"Hello Sock!", 11);
 
     // Get the frame as a byte array
-    uint8_t* data_bytes = get_data_bytes(&frame);
+    uint8_t* data_bytes = get_frame_bytes(&frame);
 
     // Send the actual data to client
     send(client, data_bytes, frame.total_len, 0);
@@ -158,7 +159,7 @@ void sendFrame(int client) {
     set_data(&frame, (uint8_t*)"\0\1Close Socket!", 15);
 
     // Get the frame as a byte array
-    data_bytes = get_data_bytes(&frame);
+    data_bytes = get_frame_bytes(&frame);
 
     // Send the actual data to client
     send(client, data_bytes, frame.total_len, 0);
@@ -282,19 +283,16 @@ static void sendFile(int client, const char* filename) {
 
 }
 
+//TODO: handle headers properly
 static void handle_request_header(int client) {
     char buf[256];
-    char tmp[256];
+    char tmp[256] = {0};
 
     while(read_line(client, buf, sizeof(buf)) > 1){
+        // If the web socket key is found, save the key to tmp and
+        // read the rest of the header
         if (!strncmp(buf, "Sec-WebSocket-Key: ", 19)){
             get_str_from_buf(buf, tmp, sizeof(tmp), 19);
-            // Create the Sec-WebSocket-Accept: header hash
-            socket_hash(tmp, buf);
-            // Send the 101 header to complete the websocket handshake
-            header_101(client, buf);
-            // Send a test frame to client right after the hanshake is comlete
-            sendFrame(client);
         }
         // If the connection is regular http. Return html that lets
         // the client know that this is webscoket server only
@@ -304,6 +302,15 @@ static void handle_request_header(int client) {
 
     }
 
+    // If the websocket key is found
+    if (tmp[0] != 0) {
+        // Create the Sec-WebSocket-Accept: header hash
+        socket_hash(tmp, buf);
+        // Send the 101 header to complete the websocket handshake
+        header_101(client, buf);
+        // handle the web socket connection
+        handle_connection(client);
+    }
 }
 
 static void* accept_client(void* clientptr) {

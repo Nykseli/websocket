@@ -72,7 +72,9 @@ void set_as_last_frame(Dataframe *frame);
 void set_op_code(Dataframe *frame, Opcode code);
 void set_mask_key(Dataframe *frame, uint32_t mask_key);
 void set_data(Dataframe *frame, uint8_t* data, uint64_t len);
-uint8_t* get_data_bytes(Dataframe *frame);
+uint64_t len_bytes_int(uint8_t* bytes, size_t size);
+int create_frame(Dataframe *frame, uint8_t* data);
+uint8_t* get_frame_bytes(Dataframe *frame);
 
 
 #endif

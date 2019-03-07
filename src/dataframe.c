@@ -46,6 +46,20 @@
     (uint8_t)((frame)->mask_key)\
 }
 
+/**
+ * @brief Turn the frame lengt bytes into uint64_t value
+ *
+ * @param bytes byte array containing the length bytes
+ * @param size amount of bytes. 2 for 16bit length value and 4 for 64 bit value
+ * @return uint64_t the length int
+ */
+uint64_t len_bytes_int(uint8_t* bytes, size_t size) {
+    uint64_t value = 0;
+    for (uint32_t i = 0; i < size; i++) {
+        value |= (uint64_t) bytes[i] << (8 * (size - 1 - i));
+    }
+    return value;
+}
 
 void init_dataframe(Dataframe *frame) {
     frame->control = 0;
@@ -139,14 +153,71 @@ void set_data(Dataframe *frame, uint8_t* data, uint64_t len) {
 
 }
 
-//TODO: create frame from byte array
+/**
+ * @brief Create frame struct from data array
+ *
+ * @param frame The Dataframe you want to create
+ * @param data utint8_t array that contains the frame data
+ * @return 1 if succes, 0 if fail
+ */
+int create_frame(Dataframe *frame, uint8_t* data) {
+    //TODO: error handling
+
+    // current_index points what byte are we currently handeling
+    // we can start it at two since we know what first two bytes are
+    int current_index = 2;
+
+    // The first byte is always the control byte
+    frame->control = data[0];
+    // The second byte is always the info byte
+    frame->data_info = data[1];
+
+    // If the info length is 126, the real length is in the next  two bytes
+    if (DATA_INFO_LEN(frame) == 126) {
+        frame->data_length = len_bytes_int(data + current_index, 2);
+        current_index += 2;
+    } else if (DATA_INFO_LEN(frame) == 127) {
+        // If the info length is 127, the real length is in the next eight bytes
+        frame->data_length = len_bytes_int(data + current_index, 8);
+        current_index += 8;
+    } else {
+        // else the length is represented in frame->data_info
+        frame->data_length = DATA_INFO_LEN(frame);
+    }
+
+    // If the frame has mask, get the uint32 value from the four next bytes
+    if (HAS_MASK(frame)) {
+        frame->mask_key = (uint32_t) len_bytes_int(data + current_index, 4);
+        // decode the message
+        uint8_t* mask = data + current_index;
+        current_index += 4;
+        // The msg starts right after the mask bytes
+        uint8_t* msg = data + current_index;
+
+        // https://developer.mozilla.org/en-US/docs/Web/API/WebSockets_API/Writing_WebSocket_servers#Reading_and_Unmasking_the_Data
+        for (uint64_t i = 0; i < frame->data_length; i++) {
+            msg[i] = msg[i] ^ mask[i % 4];
+        }
+    }
+
+    // Set total length to be the current_index (i.e. how many bytes before actual data)
+    // and the data_length
+    frame->total_len = current_index + frame->data_length;
+
+    // Finally allocate memory for the actual data and copy the rest of the bytes to it
+    frame->data = malloc(sizeof(uint8_t) * frame->data_length);
+    memcpy(frame->data, data + current_index, frame->data_length);
+
+    return 1;
+}
+
 /**
  * @brief Get the byte array in from the frame struct
  *
  * @param frame The Dataframe you want to set the data to
  * @return uint8_t* pointer to the array
  */
-uint8_t* get_data_bytes(Dataframe *frame) {
+uint8_t* get_frame_bytes(Dataframe *frame) {
     uint8_t* data_bytes = NULL;
     // Extra bytes are the bytes that are not the actual data bytes
     // We always need atleast two since for the control and info byte

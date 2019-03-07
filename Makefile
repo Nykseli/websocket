@@ -8,8 +8,8 @@ CRYPTOPATH = src/crypto/
 
 all: server client
 
-server: sha1.o base64.o dataframe.o
-	gcc src/main.c -o server src/dataframe.o $(CRYPTOPATH)sha1.o $(CRYPTOPATH)base64.o $(CFLAGS)
+server: sha1.o base64.o dataframe.o socketcon.o
+	gcc src/main.c -o server src/socketcon.o src/dataframe.o $(CRYPTOPATH)sha1.o $(CRYPTOPATH)base64.o $(CFLAGS)
 
 client:
 	gcc src/test_client.c -o client $(CFLAGS)
@@ -28,5 +28,8 @@ base64.o: $(CRYPTOPATH)base64.c
 
 dataframe.o: src/dataframe.c
 	gcc $(CFLAGS) -c src/dataframe.c -o src/dataframe.o
+
+socketcon.o: src/socketcon.c
+	gcc $(CFLAGS) -c src/socketcon.c -o src/socketcon.o
 
 .PHONY: server base64 sha1
