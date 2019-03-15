@@ -63,12 +63,12 @@
 
 #define SERVER_STR "Server: webasmhttpd/0.0.1\r\n"
 
-static int read_line(int client, char *buffer, int size) {
+static int read_line(Connection *conn, char *buffer, int size) {
     int i = 0, n;
     char c = 0;
 
     while(i < size && c != '\n') {
-        n = recv(client, &c, 1, 0);
+        n = recv(conn->conn_fd, &c, 1, 0);
 
         if(n == -1) break; // TODO: Should we report an error?
 
@@ -105,7 +105,7 @@ static void get_str_from_buf(const char *s1, char *s2, int size, int start) {
     }
 }
 
-void sendFrame(int client) {
+void sendFrame(Connection *conn) {
     Dataframe frame;
     init_dataframe(&frame);
 
@@ -122,7 +122,7 @@ void sendFrame(int client) {
     uint8_t* data_bytes = get_frame_bytes(&frame);
 
     // Send the actual data to client
-    send(client, data_bytes, frame.total_len, 0);
+    send(conn->conn_fd, data_bytes, frame.total_len, 0);
 
     // Free the mallocs
     free_dataframe(&frame);
@@ -147,7 +147,7 @@ void sendFrame(int client) {
     data_bytes = get_frame_bytes(&frame);
 
     // Send the actual data to client
-    send(client, data_bytes, frame.total_len, 0);
+    send(conn->conn_fd, data_bytes, frame.total_len, 0);
 
     // Free the mallocs
     free_dataframe(&frame);
@@ -179,89 +179,89 @@ static void socket_hash(char *in, char *out) {
 /**
  * @brief send 101 header to client. This is the webscoket handshake
  *
- * @param client File descriptor
+ * @param conn Connection struct
  * @param accept the base64 string of the handshake hash
  */
-static void header_101(int client, const char *accept) {
+static void header_101(Connection *conn, const char *accept) {
     char buf[1024];
 
     strcpy(buf, "HTTP/1.1 101 Switching Protocols\r\n");
-    send(client, buf, strlen(buf), 0);
+    send(conn->conn_fd, buf, strlen(buf), 0);
     strcpy(buf, "Upgrade: websocket\r\n");
-    send(client, buf, strlen(buf), 0);
+    send(conn->conn_fd, buf, strlen(buf), 0);
     strcpy(buf, "Connection: Upgrade\r\n");
-    send(client, buf, strlen(buf), 0);
+    send(conn->conn_fd, buf, strlen(buf), 0);
     strcpy(buf, "Sec-WebSocket-Accept: ");
     strcat(buf, accept);
     strcat(buf, "\r\n");
     printf("%s", buf);
-    send(client, buf, strlen(buf), 0);
+    send(conn->conn_fd, buf, strlen(buf), 0);
     strcpy(buf, "\r\n");
-    send(client, buf, strlen(buf), 0);
+    send(conn->conn_fd, buf, strlen(buf), 0);
 }
 
 /**
  * @brief send 200 header to client
  *
- * @param client File descriptor
+ * @param conn Connection struct
  * @param filename path and name to the file
  */
-static void header_200(int client, const char *filename) {
+static void header_200(Connection *conn, const char *filename) {
     char buf[1024];
 
     //TODO: use filename to determine the Content-Type
 
     strcpy(buf, "HTTP/1.0 200 OK\r\n");
-    send(client, buf, strlen(buf), 0);
+    send(conn->conn_fd, buf, strlen(buf), 0);
     strcpy(buf, SERVER_STR);
-    send(client, buf, strlen(buf), 0);
+    send(conn->conn_fd, buf, strlen(buf), 0);
     sprintf(buf, "Content-Type: text/html\r\n");
-    send(client, buf, strlen(buf), 0);
+    send(conn->conn_fd, buf, strlen(buf), 0);
     strcpy(buf, "\r\n");
-    send(client, buf, strlen(buf), 0);
+    send(conn->conn_fd, buf, strlen(buf), 0);
 }
 
 /**
  * @brief send 404 header to client
  *
- * @param client File descriptor
+ * @param conn Connection struct
  */
-static void header_404(int client){
+static void header_404(Connection *conn){
     char buf[1024];
 
     //TODO: use filename to determine the Content-Type
 
     strcpy(buf, "HTTP/1.0 404 Not Found\r\n");
-    send(client, buf, strlen(buf), 0);
+    send(conn->conn_fd, buf, strlen(buf), 0);
     strcpy(buf, SERVER_STR);
-    send(client, buf, strlen(buf), 0);
+    send(conn->conn_fd, buf, strlen(buf), 0);
     sprintf(buf, "Content-Type: text/html\r\n");
-    send(client, buf, strlen(buf), 0);
+    send(conn->conn_fd, buf, strlen(buf), 0);
     strcpy(buf, "\r\n");
-    send(client, buf, strlen(buf), 0);
+    send(conn->conn_fd, buf, strlen(buf), 0);
 }
 
-static void send_file_content(int client, FILE *resource) {
+static void send_file_content(Connection *conn, FILE *resource) {
     char buf[1024];
 
     fgets(buf, sizeof(buf), resource);
     while (!feof(resource)) {
-        send(client, buf, strlen(buf), 0);
+        send(conn->conn_fd, buf, strlen(buf), 0);
         fgets(buf, sizeof(buf), resource);
     }
 }
 
-static void sendFile(int client, const char* filename) {
+static void sendFile(Connection *conn, const char* filename) {
     FILE *resource = NULL;
 
     resource = fopen(filename, "r");
 
     // Send 404 response if cannot find the file
     if(resource == NULL) {
-        header_404(client);
+        header_404(conn);
     } else {
-        header_200(client, filename);
-        send_file_content(client, resource);
+        header_200(conn, filename);
+        send_file_content(conn, resource);
         // Finally close the file
         fclose(resource);
     }
@@ -269,11 +269,11 @@ static void sendFile(int client, const char* filename) {
 }
 
 //TODO: handle headers properly
-static void handle_request_header(int client) {
+static void handle_request_header(Connection *conn) {
     char buf[256];
     char tmp[256] = {0};
 
-    while(read_line(client, buf, sizeof(buf)) > 1){
+    while(read_line(conn, buf, sizeof(buf)) > 1){
         // If the web socket key is found, save the key to tmp and
         // read the rest of the header
         if (!strncmp(buf, "Sec-WebSocket-Key: ", 19)){
@@ -282,7 +282,7 @@ static void handle_request_header(int client) {
         // If the connection is regular http. Return html that lets
         // the client know that this is webscoket server only
         if (!strcmp(buf, "Connection: keep-alive")) {
-            sendFile(client, "html/ws_only.html");
+            sendFile(conn, "html/ws_only.html");
         }
 
     }
@@ -292,17 +292,18 @@ static void handle_request_header(int client) {
         // Create the Sec-WebSocket-Accept: header hash
         socket_hash(tmp, buf);
         // Send the 101 header to complete the websocket handshake
-        header_101(client, buf);
+        header_101(conn, buf);
         // handle the web socket connection
-        handle_connection(client);
+        handle_connection(conn);
     }
 }
 
 void* accept_client(void* clientptr) {
-        int client = *((int*) clientptr);
+        Connection conn;
+        conn.conn_fd = *((int*) clientptr);
 
         // Read the data from client and print it
-        handle_request_header(client);
+        handle_request_header(&conn);
 
         // if (shutdown(client, SHUT_RDWR) == -1) {
         //     perror("shutdown failed");
@@ -311,7 +312,7 @@ void* accept_client(void* clientptr) {
         // }
 
         printf("request handled\n");
-        close(client);
+        close_connection(&conn);
 
         return NULL;
 }
