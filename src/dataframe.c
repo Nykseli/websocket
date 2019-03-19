@@ -85,15 +85,15 @@ void set_as_last_frame(Dataframe *frame) {
 }
 
 void set_RSV1(Dataframe *frame) {
-    // TODO:
+    frame->control |= 0x40;
 }
 
 void set_RSV2(Dataframe *frame) {
-    //TODO:
+    frame->control |= 0x20;
 }
 
 void set_RSV3(Dataframe *frame) {
-    //TODO:
+    frame->control |= 0x10;
 }
 
 /**
